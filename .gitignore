@@ -1,0 +1,24 @@
+# Ignore compiled files
+*.ex5
+*.ex4
+
+# Ignore MetaTrader tester logs and cache
+*.log
+*.txt~
+*.tmp
+*.cache
+*.dat
+
+# Ignore strategy tester output
+tester/*
+!tester/presets/
+
+# Ignore Windows junk
+Thumbs.db
+Desktop.ini
+
+# Ignore VS Code workspace settings
+.vscode/
+
+# Ignore build artifacts
+build/

@@ -1,0 +1,116 @@
+could you generate a list of all the definitions and calculations contained in the script.
+I have extracted all the key definitions and formulas from the script for your reference.
+
+1. Core Financial Definitions
+Original Account Size: The baseline account balance used for percentage calculations.
+
+Formula: Input AccountSize (default $25,000) OR auto-detected AccountBalance() if UseAutoDetection is true.
+
+Prior Day Close (PDC): The account equity at the start of the trading day (00:00 server time).
+
+Formula: AccountEquity captured at DailyResetHour.
+
+High Water Mark (HWM): The highest equity peak reached since the script started running.
+
+Formula: Max(CurrentEquity, All-Time Highest Equity).
+
+Working Account Size: The balance used for risk calculations (either your manual input or the live balance).
+
+2. Risk Limit Calculations (The "Hard Stops")
+Daily Loss Limit (DLL): The maximum allowable loss for the current day.
+
+Formula: PriorDayClose * (DailyLossLimitPct / 100)
+
+Breach Level: PriorDayClose - DailyLossLimit
+
+Max Trailing Drawdown (TLL): A moving drawdown limit that trails your profit peaks.
+
+Limit Amount: WorkingAccountSize * (MaxTrailingDrawdownPct / 100)
+
+Breach Level: HighWaterMark - LimitAmount
+
+TF Shield: A hard "catastrophic loss" shield based on the original starting balance.
+
+Limit Amount: StartingBalance * (TFShieldPercentage / 100)
+
+Breach Logic: Triggers if Sum(Floating Losses) > LimitAmount.
+
+3. Monitoring & Buffers (The "Soft" Metrics)
+Current Risk Exposure: The total of all currently losing positions (winners count as 0 risk).
+
+Formula: Sum(Abs(Profit + Swap)) for all trades where Profit < 0.
+
+DLL Buffer: How much room is left before hitting the Daily Loss Limit.
+
+Formula: CurrentEquity - (PriorDayClose - DailyLossLimit)
+
+TLL Buffer: How much room is left before hitting the Trailing Drawdown Limit.
+
+Formula: CurrentEquity - (HighWaterMark - TLL_Limit)
+
+TF Shield Buffer: How much room is left before the Shield triggers.
+
+Formula: TFShieldLimit - CurrentRiskExposure
+
+4. Profit Targets
+Daily Gain Target (DGT): The goal for today's profit.
+
+Formula: WorkingAccountSize * (DailyGainTargetPct / 100)
+
+Total Target Gain (TTG): The goal for total account growth.
+
+Formula: WorkingAccountSize * (TotalTargetGainPct / 100)
+
+Daily Gain (Real): The actual P&L for the current day.
+
+Formula: CurrentEquity - PriorDayClose
+
+5. Position Management Logic
+Pip Size: Automatically detected based on digits.
+
+Indices (2 digits): 0.1 (10 pips = $1.00)
+
+Forex (5 digits): 0.0001
+
+JPY (3 digits): 0.01
+
+Smart Entry Lots: Calculates lot size based on risk percentage.
+
+Formula: (AccountSize * Risk%) / (StopLossPips * PipValue)
+
+Tilt Protection: Blocks trading if you lose too many times in a row.
+
+Trigger: ConsecutiveLossCount >= MaxConsecutiveLosses
+
+Penalty: Trading blocked for TiltPauseMinutes.
+
+Profit Ratchet: "Locks in" daily gains to prevent giving them back.
+
+Trigger: If DailyGain >= ActivationPct, the DLL is raised to PriorDayClose + LockPct.
+
+6. Execution & Reliability
+Unblock Countdown: If a limit is hit, trading is blocked for UnblockCountdownMinutes (default 60m).
+
+News Filter: Blocks trading PreMinutes before and PostMinutes after High-Impact news.
+
+Time Filter: Blocks trading outside AllowedStartTime and AllowedEndTime.
+
+The risk exposure is defined as the current sum of all floating losses in your open positions.
+
+In the script, it is calculated in RecalculateBuffers():
+
+It loops through every open position on the chart's symbol.
+
+It checks the Profit + Swap for that position.
+
+If that value is negative (a loss), it adds the absolute value to the CurrentFloatingLoss.
+
+If the position is in profit, it is ignored (it counts as $0 risk).
+
+The formula used in the code is:
+
+cpp
+CurrentFloatingLoss = SUM( abs(PositionProfit) ) where PositionProfit < 0
+(This means profits do not offset losses in this specific risk metric; it measures "how much I am currently losing".)
+
+If you have 1 trade winning +$100 and 1 trade losing -$50, your Current Risk Exposure is $50 (not +$50 net). This is a conservative risk measure.

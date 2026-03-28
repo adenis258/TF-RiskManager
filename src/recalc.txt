@@ -1,0 +1,95 @@
+void RecalculateBuffers()
+{
+   double pdc=(Manual_PriorDayClose>0)?Manual_PriorDayClose:PriorDayClose;
+   if(pdc>WorkingAccountSize*2.5||pdc<WorkingAccountSize*0.1) { Manual_PriorDayClose=0.0; pdc=PriorDayClose; }
+   double hwm=(Manual_HighWaterMark  >0)?Manual_HighWaterMark :HighWaterMark;
+   double bal=(Manual_StartingBalance>0)?Manual_StartingBalance:WorkingAccountSize;
+   double equity=AccountInfoDouble(ACCOUNT_EQUITY);
+   TodaysTotalGain=equity-pdc;
+
+   Buffer_DLL     = equity - (pdc - DLL_FixedAmount);
+   
+   if(TLL_IsTrailing)
+   {
+      double temp = hwm - TLL_FixedAmount;
+      TLL_BreachLevel = MathMin(TLL_LockFloor, temp);
+      Buffer_TLL      = equity - TLL_BreachLevel;
+   }
+   else
+      Buffer_TLL = equity - TLL_BreachLevel;
+
+   if(Buffer_DLL > Buffer_TLL) Buffer_DLL = Buffer_TLL;
+
+   Buffer_DLL_Pct = (DLL_FixedAmount > 0) ? (Buffer_DLL / DLL_FixedAmount) * 100.0 : 0.0;
+   Buffer_TLL_Pct = (TLL_FixedAmount > 0) ? (Buffer_TLL / TLL_FixedAmount) * 100.0 : 0.0;
+
+   TLL_IsBinding        = (Buffer_TLL_Pct < Buffer_DLL_Pct);
+   Buffer_Effective     = TLL_IsBinding ? Buffer_TLL : Buffer_DLL;
+   Buffer_Effective_Pct = MathMin(Buffer_DLL_Pct, Buffer_TLL_Pct);
+
+   if(EnableTFShield)
+   {
+      double tf_fixed = bal * (Runtime_TFShieldPercentage / 100.0);
+      
+      double current_floating = 0.0;
+      for(int i = 0; i < PositionsTotal(); i++) {
+         ulong t = PositionGetTicket(i);
+         if(t > 0 && PositionSelectByTicket(t)) {
+            double profit = PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
+            current_floating += profit;
+         }
+      }
+      
+      if(current_floating > 0) current_floating = 0;
+      
+      Buffer_TF = tf_fixed + current_floating; 
+      Buffer_TF_Pct = (tf_fixed > 0) ? (Buffer_TF / tf_fixed) * 100.0 : 0.0;
+   }
+   else
+   {
+      Buffer_TF = 0.0; Buffer_TF_Pct = 0.0;
+   }
+
+   double tf_limit=bal*(Runtime_TFShieldPercentage/100.0), current_loss=0.0;
+
+   static datetime dll_alert_window=0; static int dll_alert_count=0; static datetime dll_last_alert=0;
+   static datetime tll_alert_window=0; static int tll_alert_count=0; static datetime tll_last_alert=0;
+   static datetime tfs_alert_window=0; static int tfs_alert_count=0; static datetime tfs_last_alert=0;
+   
+   if(Buffer_Effective_Pct<=20.0&&Buffer_Effective_Pct>0&&Buffer_Effective>1.0 && !TLLBreached){
+      if(dll_alert_window==0||TimeCurrent()-dll_alert_window>=300){dll_alert_window=TimeCurrent();dll_alert_count=0;dll_last_alert=0;}
+      if(dll_alert_count<1){ 
+         string eff_which = TLL_IsBinding ? TLL : DLL;
+         TLLCooldownEndTime = TimeCurrent() + TLL_CooldownMinutes * 60; 
+         if(ShowAlert)Alert(?? RISK CRITICAL [,eff_which,]: >80% consumed. Trading PAUSED for , TLL_CooldownMinutes,  min.);
+         if(LogToTerminal)Print(?? RISK CRITICAL [,eff_which,] $,DoubleToString(Buffer_Effective,2), left (,DoubleToString(Buffer_Effective_Pct,1),%). PAUSED until , TimeToString(TLLCooldownEndTime));
+         dll_alert_count++;dll_last_alert=TimeCurrent();}}
+   else{dll_alert_window=0;dll_alert_count=0;dll_last_alert=0;}
+
+   if(!DailyLossBreached && CurrentEquity < DLL_BreachLevel)
+   {
+      DailyLossBreached=true; DailyLossBreachTime=TimeCurrent();
+      if(!DailyLossAlertSent && ShowAlert){
+         Alert(StringFormat(?? DLL HIT! Day start=$%.2f | Now=$%.2f | Loss=-$%.2f | Limit=$%.2f,
+               PriorDayClose, CurrentEquity, PriorDayClose-CurrentEquity, DLL_FixedAmount));
+         DailyLossAlertSent=true; }
+   }
+
+   if(!TLLBreached && CurrentEquity < TLL_BreachLevel)
+   {
+      TLLBreached=true; TLLBreachTime=TimeCurrent();
+      if(!TLLAlertSent){
+         if(ShowAlert)     Alert(?? TLL BREACHED! Account safety limit reached.);
+         if(LogToTerminal) Print(?? TLL BREACH Eq=$,DoubleToString(CurrentEquity,2), Lvl=$,DoubleToString(TLL_BreachLevel,2));
+         TLLAlertSent=true;}
+   }
+
+   bool tf_daily_breach = EnableTFShield && (Buffer_TF <= 0.0);
+   if(tf_daily_breach){
+      tf_confirm++;
+      if(tf_confirm>=2&&TimeCurrent()-last_tfs_alert>30){
+         if(Manual_TFS_Breach){if(ShowAlert)Alert(?? TF SHIELD 2ND VIOLATION ??);}
+         else{if(ShowAlert)Alert(?? TF SHIELD 1ST: Maximum floating loss reached.);}
+         last_tfs_alert=TimeCurrent();}}
+   else{tf_confirm=0;}
+}

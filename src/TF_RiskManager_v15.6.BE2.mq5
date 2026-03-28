@@ -1,12 +1,11 @@
 ﻿//+------------------------------------------------------------------+
-//|                  TF Complete Manager v15.4                       |
-//|         Enhanced Version - Risk + Monitor + Smart Entry          |
-//|   v15.0: GUI Overlap Fix / Z-Order / Layout Optimization        |
+//|                  TF Risk Manager v15.6                      |
+//|               |
 //+------------------------------------------------------------------+
 #property strict
 #property description "Complete TF System: Risk + Monitor + Reliability + Advanced Features"
-#property version   "15.4"
-#property copyright "Andre Denis-2026-03-03 | v15.4"
+#property version   "15.6"
+#property copyright "Andre Denis-2026-03-19 | v15.6"
 
 #include <Trade\Trade.mqh>
 
@@ -818,8 +817,8 @@ void MoveAllToBreakeven()
 
       // Check if price has moved far enough to place BE SL safely
       bool price_past_be = (monitored_positions[i].type == POSITION_TYPE_BUY)
-                           ? (cur_price > new_sl + pip_size)
-                           : (cur_price < new_sl - pip_size);
+                           ? (cur_price > new_sl)
+                           : (cur_price < new_sl);
       if(!price_past_be)
       {
          skipped_in_loss++;
@@ -920,7 +919,7 @@ bool ModifyPositionSLTP(ulong ticket, double new_sl, double new_tp, string reaso
 }
 int GetMonitorIndexByTicket(ulong ticket);
 void DrawOrUpdateSLTPLines(int idx);
-// AddPositionToMonitor(ulong ticket) — v15.2: orphan forward declaration removed.
+// AddPositionToMonitor(ulong ticket) — v15.5: orphan forward declaration removed.
 // Position-adding logic is handled entirely inline by ScanAndAddPositions().
 void UpdateMonitorGUI();
 void MonitorPositions();
@@ -951,7 +950,7 @@ int OnInit()
    Runtime_AccountType = AccountType;
    Runtime_FlexFundedAccount = FlexFundedAccount;
    
-   Print("Initializing TF Complete Manager v15.2");
+   Print("Initializing TF Complete Manager v15.5");
    EventSetTimer(1);
    
    symbol_digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
@@ -1167,7 +1166,7 @@ int OnInit()
    ChartRedraw();
    
    Print("========================================");
-   Print("TF COMPLETE MANAGER v15.2");
+   Print("TF COMPLETE MANAGER v15.5");
    Print("Loaded at Server Time: ", TimeToString(TimeCurrent()));
    Print("========================================");
    Print("✓ VERSION: 15.2");
@@ -1244,9 +1243,9 @@ ScanAndAddPositions();
 
 void OnTick()
 {
-   // NOTE (v15.2 Fix): The g_active_edit_object OnTick guard was REMOVED.
+   // NOTE (v15.5 Fix): The g_active_edit_object OnTick guard was REMOVED.
    // Rationale: UpdateRiskPanel() (called every tick) never touches any OBJ_EDIT
-   // object, and UpdateSettingsPanel() is now buttons-only (v15.2 Fix E).
+   // object, and UpdateSettingsPanel() is now buttons-only (v15.5 Fix E).
    // The old guard caused a permanent freeze: CHARTEVENT_OBJECT_ENDEDIT only
    // fires reliably on Enter — if the user clicked an edit box and then clicked
    // the chart background without pressing Enter, g_active_edit_object was never
@@ -1471,88 +1470,50 @@ void CheckRatchet()
 //+------------------------------------------------------------------+
 void RecalculateLimits()
 {
-   double pdc = (Manual_PriorDayClose  > 0) ? Manual_PriorDayClose  : PriorDayClose;
-   // v14.27: guard against stale/corrupt manual PDC
-   if(pdc > WorkingAccountSize * 2.5 || pdc < WorkingAccountSize * 0.1)
-   {
-      if(LogToTerminal) PrintFormat("v14.27 WARN: PDC %.2f out of range [%.2f-%.2f] — auto-cleared",
-                                    pdc, WorkingAccountSize*0.1, WorkingAccountSize*2.5);
-      Manual_PriorDayClose = 0.0;  // auto-clear corrupt value
-      pdc = PriorDayClose;         // fall back to auto
-   }
-   double hwm = (Manual_HighWaterMark  > 0) ? Manual_HighWaterMark  : HighWaterMark;
    double bal = (Manual_StartingBalance > 0) ? Manual_StartingBalance : WorkingAccountSize;
-
-   StartingBalance    = bal;
-   WorkingAccountSize = bal;
-
-   // ── TF Shield ─────────────────────────────────────────────────
-   TFShieldLimit = bal * (Runtime_TFShieldPercentage / 100.0);
-   WarningLevel  = TFShieldLimit * (Runtime_WarningThreshold / 100.0);
-
-   // ── DLL: fixed dollar amount based on INITIAL balance ─────────
-   // TF rule: % applies to the account's initial/starting balance,
-   // not the prior day close balance.
-   DLL_FixedAmount     = bal * (Runtime_DailyLossLimitPct / 100.0);
-   DailyLossLimit      = DLL_FixedAmount;
-   DailyDDWarningLevel = DLL_FixedAmount * (Runtime_WarningThreshold / 100.0);
-   DLL_BreachLevel     = pdc - DLL_FixedAmount;
-
-   // ── TLL: account-type-dependent ───────────────────────────────
-   // v14.23: Fully self-configuring per-account percentages.
-   // Source: TradingFunds official FAQ + Flex Challenge image (2026-03-01).
-   // User inputs (DailyLossLimitPct / MaxTrailingDrawdownPct) are IGNORED
-   // for limit calculation — the EA enforces the correct TF rules automatically.
-   //
-   //  Account          DLL%   TLL%   TLL Type
-   //  1-Step Eval       5%     8%    Trailing
-   //  2-Step Eval       5%     8%    Static
-   //  Instant Funding   5%     6%    Trailing
-   //  Flex Eval         5%     8%    Trailing
-   //  Flex Funded       5%     6%    Trailing
-
-   double effective_dll_pct = 5.0;   // universal across all TF account types
-   double effective_tll_pct = 8.0;   // default — overridden below for Instant & Flex Funded
+   double effective_dll_pct = 0.0;
+   double effective_tll_pct = 0.0;
 
    switch(Runtime_AccountType)
    {
-      case TF_STEP1:    effective_dll_pct = 5.0; effective_tll_pct = 8.0; break;
-      case TF_STEP2:    effective_dll_pct = 5.0; effective_tll_pct = 8.0; break;
-      case TF_INSTANT:  effective_dll_pct = 5.0; effective_tll_pct = 6.0; break;
-      case TF_FLEX:
-         effective_dll_pct = 5.0;
-         effective_tll_pct = Runtime_FlexFundedAccount ? 6.0 : 8.0;
+      case TF_STEP1:
+         effective_dll_pct = 4.0;
+         effective_tll_pct = 8.0;
+         TLL_IsTrailing = true;
          break;
-      default:          effective_dll_pct = 5.0; effective_tll_pct = 8.0; break;
+      case TF_STEP2:
+         effective_dll_pct = 5.0;
+         effective_tll_pct = 8.0;
+         TLL_IsTrailing = false;
+         break;
+      case TF_INSTANT:
+         effective_dll_pct = 5.0;
+         effective_tll_pct = 6.0;
+         TLL_IsTrailing = true;
+         break;
+      case TF_FLEX:
+         effective_dll_pct = 4.0;
+         effective_tll_pct = Runtime_FlexFundedAccount ? 6.0 : 8.0;
+         TLL_IsTrailing = true;
+         break;
    }
-
-   // Override Runtime percentages so all downstream logic stays consistent
-   Runtime_DailyLossLimitPct = effective_dll_pct;
-   Runtime_MaxTrailingDDPct  = effective_tll_pct;
 
    DLL_FixedAmount = bal * (effective_dll_pct / 100.0);
    TLL_FixedAmount = bal * (effective_tll_pct / 100.0);
-   TLLLimit        = TLL_FixedAmount;
-
-   TLL_IsTrailing = (Runtime_AccountType != TF_STEP2);
 
    if(!TLL_IsTrailing)
    {
-      // 2-Step Evaluation — STATIC: breach level is fixed at inception
       TLL_BreachLevel = bal - TLL_FixedAmount;
-      TLL_LockFloor   = TLL_BreachLevel;   // permanent — never changes
+      TLL_LockFloor = TLL_BreachLevel;
    }
    else
    {
-      // 1-Step / Instant / Flex — TRAILING TLL
-      // Breach level trails HWM upward, but is capped at InitialBalance.
-      // Once HWM reaches (InitialBalance + TLL_fixed_amount) the floor
-      // locks at InitialBalance and stops trailing further up.
-      TLL_LockFloor   = bal;
-      TLL_BreachLevel = hwm - TLL_FixedAmount;
-      if(TLL_BreachLevel > TLL_LockFloor)
-         TLL_BreachLevel = TLL_LockFloor;
+      TLL_LockFloor = bal;
+      double new_tll_breach_level = HighWaterMark - TLL_FixedAmount;
+      if (new_tll_breach_level > TLL_LockFloor) new_tll_breach_level = TLL_LockFloor;
+      TLL_BreachLevel = new_tll_breach_level;
    }
+   DLL_BreachLevel = PriorDayClose - DLL_FixedAmount;
 }
 
 //+------------------------------------------------------------------+
@@ -1571,19 +1532,25 @@ void RecalculateBuffers()
    // The ratchet can raise DLL_BreachLevel, but the reported buffer must reflect the
    // true daily room (how far equity is above the daily floor), not the ratchet floor.
    Buffer_DLL     = equity - (pdc - DLL_FixedAmount);
-   Buffer_DLL_Pct = (DLL_FixedAmount > 0) ? (Buffer_DLL / DLL_FixedAmount) * 100.0 : 0.0;
 
    // v14.33: TLL buffer — trailing or static, unchanged from v14.32
    if(TLL_IsTrailing)
    {
       double temp = hwm - TLL_FixedAmount;
-      // v15.2 Fix D: MathMax→MathMin — TLL_LockFloor is the upper cap, not a lower floor.
+      // v15.5 Fix D: MathMax→MathMin — TLL_LockFloor is the upper cap, not a lower floor.
        TLL_BreachLevel = MathMin(TLL_LockFloor, temp);
       Buffer_TLL      = equity - TLL_BreachLevel;
    }
    else
       Buffer_TLL = equity - TLL_BreachLevel;     // static floor
 
+   // DLL Matching TLL: If Buffer_DLL is greater than Buffer_TLL, the EA must force Buffer_DLL = Buffer_TLL
+   if (Buffer_DLL > Buffer_TLL)
+   {
+      Buffer_DLL = Buffer_TLL;
+   }
+   
+   Buffer_DLL_Pct = (DLL_FixedAmount > 0) ? (Buffer_DLL / DLL_FixedAmount) * 100.0 : 0.0;
    Buffer_TLL_Pct = (TLL_FixedAmount > 0) ? (Buffer_TLL / TLL_FixedAmount) * 100.0 : 0.0;
 
    // v14.33: Effective buffer = binding (tightest) of DLL and TLL
@@ -1593,10 +1560,24 @@ void RecalculateBuffers()
 
    // v14.33 FIX: TF Shield — daily basis (same logic as DLL), not floating open-loss.
    // This prevents false TF Shield warnings when positions are in profit.
+   // TradingFunds TF Shield exact rule: Maximum OPEN loss of current trades cannot exceed 2% of Initial Account Size.
+   // E.g.,  account -> 2% = ,000. If floating loss of open trades hits -,000, it breaches.
    if(EnableTFShield)
    {
       double tf_fixed = bal * (Runtime_TFShieldPercentage / 100.0);
-      Buffer_TF     = equity - (pdc - tf_fixed);
+      
+      // Calculate total floating loss of all open positions
+      double current_floating_loss = 0.0;
+      for(int i = 0; i < PositionsTotal(); i++) {
+         ulong t = PositionGetTicket(i);
+         if(t > 0 && PositionSelectByTicket(t)) {
+            double profit = PositionGetDouble(POSITION_PROFIT) + PositionGetDouble(POSITION_SWAP);
+            if(profit < 0) current_floating_loss += profit;
+         }
+      }
+      
+      // How much of the allowed floating loss is left?
+      Buffer_TF = tf_fixed + current_floating_loss; // tf_fixed is positive, current_floating_loss is negative
       Buffer_TF_Pct = (tf_fixed > 0) ? (Buffer_TF / tf_fixed) * 100.0 : 0.0;
    }
    else
@@ -1604,7 +1585,7 @@ void RecalculateBuffers()
       Buffer_TF = 0.0; Buffer_TF_Pct = 0.0;
    }
 
-   // v15.2 engine review: use the same daily-basis TF Shield model for breach
+   // v15.5 engine review: use the same daily-basis TF Shield model for breach
    // detection as the displayed TFS Buffer, preventing false lock/popups when
    // the account is positive on the day but has floating losing legs.
    double tf_limit=bal*(Runtime_TFShieldPercentage/100.0), current_loss=0.0;
@@ -1643,9 +1624,11 @@ void RecalculateBuffers()
       tf_confirm++;
       if(tf_confirm>=2&&TimeCurrent()-last_tfs_alert>30){
          if(Manual_TFS_Breach){if(ShowAlert)Alert("🚨 TF SHIELD 2ND VIOLATION 🚨");if(LogToTerminal)Print("🚨 TF SHIELD 2ND VIOLATION 🚨");}
-         else{if(ShowAlert)Alert("⚠️ TF SHIELD 1ST: Closing ALL positions");
+         else{if(ShowAlert)Alert("⚠️ TF SHIELD 1ST VIOLATION: Floating loss limit breached.");
               if(LogToTerminal)Print("⚠️ TF SHIELD 1ST Daily buffer breached. Buffer=$",DoubleToString(Buffer_TF,2)," Limit=$",DoubleToString(tf_limit,2)," (",DoubleToString(Runtime_TFShieldPercentage,1),"% of $",DoubleToString(bal,2),")");}
-         last_tfs_alert=TimeCurrent(); if(PositionsTotal()>0)CloseAllPositions("TF Shield breach");}}
+         last_tfs_alert=TimeCurrent();
+      }
+   }
    else{tf_confirm=0;}
 }
 
@@ -1837,11 +1820,11 @@ void CreateOrderBox(int base_x, int base_y) {
    int label_font_size = ScaledFont();
 
    // Top row buttons/labels ("LATEST SET BE LOCK") with wider spacing
-   CreatePanelLabel("LBL_LATEST", "LATEST", x, y, clrDodgerBlue, label_font_size, true);
-   x += Scaled(70) + horizontal_gap;  // Wider base + gap to fix overlap
+   // Removed LATEST
+   x += Scaled(70) + horizontal_gap;
    CreatePanelButton("BTN_Settings", "SET", x, y, Scaled(50), button_height, C'20,40,80', clrWhite, label_font_size);
    x += Scaled(50) + horizontal_gap;
-   CreatePanelButton("BTN_BE", "BE", x, y, Scaled(40), button_height, C'20,40,80', clrWhite, label_font_size);
+   CreatePanelButton("BTN_BE_ALL", "BE", x, y, Scaled(40), button_height, C'20,40,80', clrWhite, label_font_size);
    x += Scaled(40) + horizontal_gap;
    CreatePanelButton("BTN_LOCK", "LOCK", x, y, Scaled(60), button_height, C'20,40,80', clrWhite, label_font_size);
 
@@ -1851,16 +1834,35 @@ void CreateOrderBox(int base_x, int base_y) {
    double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
    double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
    double spread = ask - bid;
-   string bid_ask_text = "Bid " + DoubleToString(bid, 2) + " Ask " + DoubleToString(ask, 2);
-   CreatePanelLabel("LBL_BID_ASK", bid_ask_text, x, y, clrWhite, label_font_size, false);
-   CreatePanelLabel("LBL_SPREAD", DoubleToString(spread, 2), x + Scaled(120), y, clrWhite, label_font_size, false);
+      CreatePanelLabel("LBL_BID", "Bid: " + DoubleToString(bid, 2), x, y, clrWhite, label_font_size, false);
+
+   // Spread Display Box (v15.5)
+   string sp_name = "LBL_SPREAD_BOX";
+   if(ObjectFind(0, sp_name) < 0) {
+      ObjectCreate(0, sp_name, OBJ_EDIT, 0, 0, 0);
+      ObjectSetInteger(0, sp_name, OBJPROP_CORNER,  CORNER_LEFT_UPPER);
+      ObjectSetInteger(0, sp_name, OBJPROP_BGCOLOR, C'15,35,70');
+      ObjectSetInteger(0, sp_name, OBJPROP_COLOR,   clrYellow);
+      ObjectSetInteger(0, sp_name, OBJPROP_FONTSIZE, label_font_size - 1);
+      ObjectSetString (0, sp_name, OBJPROP_FONT,    "Segoe UI Bold");
+      ObjectSetInteger(0, sp_name, OBJPROP_ALIGN,   ALIGN_CENTER);
+      ObjectSetInteger(0, sp_name, OBJPROP_SELECTABLE, false);
+      ObjectSetInteger(0, sp_name, OBJPROP_READONLY,   true);
+   }
+   ObjectSetInteger(0, sp_name, OBJPROP_XDISTANCE, x + Scaled(80));
+   ObjectSetInteger(0, sp_name, OBJPROP_YDISTANCE, y);
+   ObjectSetInteger(0, sp_name, OBJPROP_XSIZE,     Scaled(45));
+   ObjectSetInteger(0, sp_name, OBJPROP_YSIZE,     button_height);
+   ObjectSetString (0, sp_name, OBJPROP_TEXT,      DoubleToString(spread / pip_size, 0));
+
+   CreatePanelLabel("LBL_ASK", "Ask: " + DoubleToString(ask, 2), x + Scaled(140), y, clrWhite, label_font_size, false);
 
    // Next row: BUY/SELL buttons
-   y += vertical_gap;
+      y += vertical_gap;
    x = base_x;
-   CreatePanelButton("BTN_BUY", "BUY", x, y, Scaled(60), button_height + Scaled(5), clrGreen, clrBlack, label_font_size);  // Taller for prominence
-   x += Scaled(65) + horizontal_gap;
    CreatePanelButton("BTN_SELL", "SELL", x, y, Scaled(60), button_height + Scaled(5), clrRed, clrBlack, label_font_size);
+   x += Scaled(65) + horizontal_gap;
+   CreatePanelButton("BTN_BUY", "BUY", x, y, Scaled(60), button_height + Scaled(5), clrGreen, clrBlack, label_font_size);  // Taller for prominence
 
    // Next row: MARKET / Limit with edit field
    y += vertical_gap;
@@ -1876,20 +1878,19 @@ void CreateOrderBox(int base_x, int base_y) {
    x = base_x;
    CreatePanelLabel("LBL_SIZE", "Size ", x, y, clrWhite, label_font_size, false);
    x += Scaled(50);
-   CreatePanelEdit("EDIT_SIZE", DoubleToString(Runtime_FixedLotSize, 2), x, y, edit_width, label_font_size);
-
-   // Next row: SL / TP with edits
+   CreatePanelEdit("EDIT_SIZE", DoubleToString(Runtime_FixedLotSize, 2), x, y, edit_width, label_font_size - 1);
+// Next row: SL / TP with edits
    y += vertical_gap;
    x = base_x;
    CreatePanelLabel("LBL_SL", "SL: ", x, y, clrWhite, label_font_size, false);
    x += Scaled(40);
    int sl_edit_x = x;
-   CreatePanelEdit("EDIT_SL", IntegerToString(Runtime_SL_Pips), x, y, edit_width, label_font_size);
-   x += edit_width + horizontal_gap;
+   CreatePanelEdit("EDIT_SL", IntegerToString(Runtime_SL_Pips), x, y, edit_width, label_font_size - 1);
+x += edit_width + horizontal_gap;
    CreatePanelLabel("LBL_TP", "TP: ", x, y, clrWhite, label_font_size, false);
    x += Scaled(40);
    int tp_edit_x = x;
-   CreatePanelEdit("EDIT_TP", IntegerToString(Runtime_TP_Pips), x, y, edit_width, label_font_size);
+   CreatePanelEdit("EDIT_TP", IntegerToString(Runtime_TP_Pips), x, y, edit_width, label_font_size - 1);
 
    // Next row: Dollar risk values ($10 $0)
    y += vertical_gap;
@@ -1925,7 +1926,7 @@ void CreateTransparentPanel()
       "LBL_BID_ASK","LBL_SPREAD",
       "BTN_SELL","BTN_BUY",
       "BTN_MARKET","BTN_LIMIT","EDIT_LIMIT_PRICE",
-      "LBL_SIZE","EDIT_SIZE",
+      "LBL_SIZE",
       "LBL_SL","EDIT_SL","LBL_TP","EDIT_TP",
       "LBL_SL_DOLLAR","LBL_RR","LBL_TP_DOLLAR",
       "BTN_FlattenAll","BTN_Settings"
@@ -1989,24 +1990,7 @@ void CreateTransparentPanel()
       ObjectSetString(0, set_name, OBJPROP_FONT, "Segoe UI");
    }
 
-   // BE ALL button (v15.0 addition)
-   string be_name = "BTN_BE_ALL";
-   if(ObjectFind(0, be_name) < 0)
-   {
-      ObjectCreate(0, be_name, OBJ_BUTTON, 0, 0, 0);
-      ObjectSetInteger(0, be_name, OBJPROP_CORNER,    CORNER_LEFT_UPPER);
-      ObjectSetInteger(0, be_name, OBJPROP_XDISTANCE, x + (int)(114 * Runtime_GuiScale));
-      ObjectSetInteger(0, be_name, OBJPROP_YDISTANCE, y + (int)(18  * Runtime_GuiScale));
-      ObjectSetInteger(0, be_name, OBJPROP_XSIZE,     (int)(36  * Runtime_GuiScale));
-      ObjectSetInteger(0, be_name, OBJPROP_YSIZE,     (int)(20  * Runtime_GuiScale));
-      ObjectSetString (0, be_name, OBJPROP_TEXT,      "BE");
-      ObjectSetInteger(0, be_name, OBJPROP_BGCOLOR,   clrDodgerBlue);
-      ObjectSetInteger(0, be_name, OBJPROP_COLOR,     clrWhite);
-      ObjectSetInteger(0, be_name, OBJPROP_FONTSIZE,  (int)(8 * Runtime_GuiScale));
-      ObjectSetString (0, be_name, OBJPROP_FONT,      "Segoe UI");
-      ObjectSetInteger(0, be_name, OBJPROP_ZORDER,    10);
-      ObjectSetInteger(0, be_name, OBJPROP_STATE,     false);
-   }
+
 
    // Kill Switch (E-STOP)
    string kill_name = "BTN_KillSwitch";
@@ -2090,7 +2074,7 @@ void CreateTransparentPanel()
          ObjectSetInteger(0,"LBL_SPRVAL",OBJPROP_FONTSIZE,mkt_fsz7);
          ObjectSetString (0,"LBL_SPRVAL",OBJPROP_FONT,"Segoe UI"); }
       ObjectSetInteger(0,"LBL_SPRVAL",OBJPROP_COLOR,(_sp<=MaxSpreadPips)?clrLimeGreen:clrOrangeRed);
-      ObjectSetString (0,"LBL_SPRVAL",OBJPROP_TEXT,DoubleToString(_sp,1)+(_sp>MaxSpreadPips?" [W]":""));
+      ObjectSetString (0,"LBL_SPRVAL",OBJPROP_TEXT,DoubleToString(_sp,0)+(_sp>MaxSpreadPips?" [W]":""));
    }
    if(ObjectFind(0,"LBL_LastLbl") < 0) {
       ObjectCreate(0,"LBL_LastLbl",OBJ_LABEL,0,0,0);
@@ -2111,33 +2095,15 @@ void CreateTransparentPanel()
       ObjectSetString (0,"LBL_LSTVAL",OBJPROP_FONT,"Segoe UI"); }
    ObjectSetString(0,"LBL_LSTVAL",OBJPROP_TEXT,DoubleToString(SymbolInfoDouble(_Symbol,SYMBOL_LAST),_Digits));
 
-   // Smart Entry Section
+      // Smart Entry Section
    int y_smart = y_price + (int)(24 * Runtime_GuiScale);
-
-   string buy_name = "BTN_SmartBuy";
-   if(ObjectFind(0, buy_name) < 0)
-   {
-      ObjectCreate(0, buy_name, OBJ_BUTTON, 0, 0, 0);
-      ObjectSetInteger(0, buy_name, OBJPROP_CORNER,    CORNER_LEFT_UPPER);
-      ObjectSetInteger(0, buy_name, OBJPROP_XDISTANCE, x + (int)(10 * Runtime_GuiScale));
-      ObjectSetInteger(0, buy_name, OBJPROP_YDISTANCE, y_smart);
-      ObjectSetInteger(0, buy_name, OBJPROP_XSIZE,     (int)(50 * Runtime_GuiScale));
-      ObjectSetInteger(0, buy_name, OBJPROP_YSIZE,     (int)(22 * Runtime_GuiScale));
-      ObjectSetString (0, buy_name, OBJPROP_TEXT,      "BUY");
-      ObjectSetInteger(0, buy_name, OBJPROP_BGCOLOR,   clrGreen);
-      ObjectSetInteger(0, buy_name, OBJPROP_COLOR,     clrWhite);
-      ObjectSetInteger(0, buy_name, OBJPROP_FONTSIZE,  (int)(7 * Runtime_GuiScale));
-      ObjectSetString (0, buy_name, OBJPROP_FONT,      "Segoe UI Bold");
-      ObjectSetInteger(0, buy_name, OBJPROP_ZORDER,    10);
-      ObjectSetInteger(0, buy_name, OBJPROP_STATE,     false);
-   }
 
    string sell_name = "BTN_SmartSell";
    if(ObjectFind(0, sell_name) < 0)
    {
       ObjectCreate(0, sell_name, OBJ_BUTTON, 0, 0, 0);
       ObjectSetInteger(0, sell_name, OBJPROP_CORNER,    CORNER_LEFT_UPPER);
-      ObjectSetInteger(0, sell_name, OBJPROP_XDISTANCE, x + (int)(65 * Runtime_GuiScale));
+      ObjectSetInteger(0, sell_name, OBJPROP_XDISTANCE, x + (int)(10 * Runtime_GuiScale));
       ObjectSetInteger(0, sell_name, OBJPROP_YDISTANCE, y_smart);
       ObjectSetInteger(0, sell_name, OBJPROP_XSIZE,     (int)(50 * Runtime_GuiScale));
       ObjectSetInteger(0, sell_name, OBJPROP_YSIZE,     (int)(22 * Runtime_GuiScale));
@@ -2148,6 +2114,24 @@ void CreateTransparentPanel()
       ObjectSetString (0, sell_name, OBJPROP_FONT,      "Segoe UI Bold");
       ObjectSetInteger(0, sell_name, OBJPROP_ZORDER,    10);
       ObjectSetInteger(0, sell_name, OBJPROP_STATE,     false);
+   }
+
+   string buy_name = "BTN_SmartBuy";
+   if(ObjectFind(0, buy_name) < 0)
+   {
+      ObjectCreate(0, buy_name, OBJ_BUTTON, 0, 0, 0);
+      ObjectSetInteger(0, buy_name, OBJPROP_CORNER,    CORNER_LEFT_UPPER);
+      ObjectSetInteger(0, buy_name, OBJPROP_XDISTANCE, x + (int)(65 * Runtime_GuiScale));
+      ObjectSetInteger(0, buy_name, OBJPROP_YDISTANCE, y_smart);
+      ObjectSetInteger(0, buy_name, OBJPROP_XSIZE,     (int)(50 * Runtime_GuiScale));
+      ObjectSetInteger(0, buy_name, OBJPROP_YSIZE,     (int)(22 * Runtime_GuiScale));
+      ObjectSetString (0, buy_name, OBJPROP_TEXT,      "BUY");
+      ObjectSetInteger(0, buy_name, OBJPROP_BGCOLOR,   clrGreen);
+      ObjectSetInteger(0, buy_name, OBJPROP_COLOR,     clrWhite);
+      ObjectSetInteger(0, buy_name, OBJPROP_FONTSIZE,  (int)(7 * Runtime_GuiScale));
+      ObjectSetString (0, buy_name, OBJPROP_FONT,      "Segoe UI Bold");
+      ObjectSetInteger(0, buy_name, OBJPROP_ZORDER,    10);
+      ObjectSetInteger(0, buy_name, OBJPROP_STATE,     false);
    }
 
    // Order-entry container layout (container-relative positioning)
@@ -2405,7 +2389,7 @@ void CreateTransparentPanel()
    // Static label objects (M_ prefix) created here with ObjectFind guard.
    // Value objects use v15.0 names (ACC_/LIM_/RISK_) so UpdateRiskPanel()
    // can update them every tick without touching the static labels.
-   // v15.2 Fix B: metrics built unconditionally — removed if(!SettingsPanelExpanded).
+   // v15.5 Fix B: metrics built unconditionally — removed if(!SettingsPanelExpanded).
    // That guard caused DeleteAllMetrics() to fire when SaveSettingsFromPanel() ran
    // while the panel was still open (SettingsPanelExpanded=true).
    {
@@ -2515,7 +2499,7 @@ void CreateTransparentPanel()
 
       Runtime_PanelBottomY = cur_y;
    }
-   // (else { DeleteAllMetrics(); } removed — v15.2 Fix B)
+   // (else { DeleteAllMetrics(); } removed — v15.5 Fix B)
 
    ChartRedraw();
 }
@@ -2622,9 +2606,7 @@ void CreatePanelPosLine(string name, string ticket, string lots, string sl, stri
 //+------------------------------------------------------------------+
 void UpdateRiskPanel()
 {
-   // v15.2 robustness: avoid GUI object churn while editing Settings fields.
-   if(StringFind(g_active_edit_object, "SET_EDIT_") == 0)
-      return;
+
 
    if(!ShowRiskPanel) return;
 
@@ -2638,17 +2620,38 @@ void UpdateRiskPanel()
    ObjectSetString (0,"LBL_BIDVAL",OBJPROP_TEXT,  DoubleToString(bid_price, _Digits));
    ObjectSetString (0,"LBL_ASKVAL",OBJPROP_TEXT,  DoubleToString(ask_price, _Digits));
    ObjectSetInteger(0,"LBL_SPRVAL",OBJPROP_COLOR, (spread_pips <= MaxSpreadPips) ? clrLimeGreen : clrOrangeRed);
-   ObjectSetString (0,"LBL_SPRVAL",OBJPROP_TEXT,  DoubleToString(spread_pips, 1) + (spread_pips > MaxSpreadPips ? " [W]" : ""));
+   ObjectSetString (0,"LBL_SPRVAL",OBJPROP_TEXT,  DoubleToString(spread_pips, 0) + (spread_pips > MaxSpreadPips ? " [W]" : ""));
    ObjectSetString (0,"LBL_LSTVAL",OBJPROP_TEXT,  DoubleToString(last_price, _Digits));
 
    // Update order box bid/ask with spread
-   double spread = ask_price - bid_price;
-   string bid_ask_text = "Bid " + DoubleToString(bid_price, 2) + " Ask " + DoubleToString(ask_price, 2);
-   ObjectSetString(0, "LBL_BID_ASK", OBJPROP_TEXT, bid_ask_text);
-   ObjectSetString(0, "LBL_SPREAD", OBJPROP_TEXT, DoubleToString(spread, 2));
 
-   // Update SL/TP from edits
+
+   double spread = ask_price - bid_price;
+
+
+   ObjectSetString(0, "LBL_BID", OBJPROP_TEXT, "Bid: " + DoubleToString(bid_price, 2));
+
+
+   ObjectSetString(0, "LBL_SPREAD", OBJPROP_TEXT, "Sprd: " + DoubleToString(spread, 1));
+
+
+   ObjectSetString(0, "LBL_ASK", OBJPROP_TEXT, "Ask: " + DoubleToString(ask_price, 2));
+
+   // Update Size/SL/TP from edits (if not actively typing)
+
+
+   if(g_active_edit_object != "EDIT_SIZE" && ObjectFind(0, "EDIT_SIZE") >= 0) {
+
+
+      ObjectSetString(0, "EDIT_SIZE", OBJPROP_TEXT, DoubleToString(Runtime_FixedLotSize, 2));
+
+
+   }
+
+
    string sl_str = ObjectGetString(0, "EDIT_SL", OBJPROP_TEXT);
+
+
    string tp_str = ObjectGetString(0, "EDIT_TP", OBJPROP_TEXT);
    Runtime_SL_Pips = (int)StringToInteger(sl_str);
    Runtime_TP_Pips = (int)StringToInteger(tp_str);
@@ -2658,10 +2661,22 @@ void UpdateRiskPanel()
    string rr_text = DoubleToString(rr_value, 1);
    ObjectSetString(0, "LBL_RR", OBJPROP_TEXT, rr_text);
 
-   // Update $ amounts
-   double sl_value = RiskPerTradePct * 10;
-   string sl_dollar = "$" + IntegerToString((int)sl_value);
-   string tp_dollar = "$" + IntegerToString((int)(rr_value * sl_value));
+   // Update $ amounts dynamically based on size
+   double current_lot = Runtime_FixedLotSize;
+   if(ObjectFind(0, "EDIT_SIZE") >= 0) {
+      string s_val = ObjectGetString(0, "EDIT_SIZE", OBJPROP_TEXT);
+      if(s_val != "") current_lot = StringToDouble(s_val);
+   }
+   
+   double contract_size = SymbolInfoDouble(_Symbol, SYMBOL_TRADE_CONTRACT_SIZE);
+   if(contract_size <= 0) contract_size = 100000;
+   
+   double sl_cash = 0;
+   if(is_index) sl_cash = current_lot * (Runtime_SL_Pips * pip_size);
+   else         sl_cash = current_lot * contract_size * (Runtime_SL_Pips * pip_size);
+   
+   string sl_dollar = "$" + IntegerToString((int)sl_cash);
+   string tp_dollar = "$" + IntegerToString((int)(rr_value * sl_cash));
    ObjectSetString(0, "LBL_SL_DOLLAR", OBJPROP_TEXT, sl_dollar);
    ObjectSetString(0, "LBL_TP_DOLLAR", OBJPROP_TEXT, tp_dollar);
 
@@ -2723,40 +2738,6 @@ void UpdateRiskPanel()
    color  dvC       = (dll_vs_sl >= 0) ? clrLime : clrRed;
    ObjectSetString (0, "RISK_DVSSL_VAL", OBJPROP_TEXT, "$" + DoubleToString(dll_vs_sl, 2));
    ObjectSetInteger(0, "RISK_DVSSL_VAL", OBJPROP_COLOR, dvC);
-
-   // ── OPEN POSITIONS — dynamic rows ─────────────────────────────────
-   double s    = Runtime_GuiScale;
-   int    s_row = (int)(24 * s); // v14.37: Increased from 20
-   int    pos_fsz = (int)MathRound(8 * s);
-   int    pos_x   = PanelOffsetX + (int)(8 * s);
-   int    pos_y   = Runtime_PanelBottomY + s_row;
-
-   ObjectsDeleteAll(0, "MON_PL_");
-
-   int shown = 0;
-   for(int i = PositionsTotal()-1; i >= 0 && shown < 6; i--) // v14.37: Limit to 6 for space
-   {
-      ulong tk = PositionGetTicket(i);
-      if(tk <= 0 || PositionGetString(POSITION_SYMBOL) != _Symbol) continue;
-      if(!PositionSelectByTicket(tk)) continue;
-
-      string sym  = PositionGetString(POSITION_SYMBOL);
-      string dir  = (PositionGetInteger(POSITION_TYPE)==POSITION_TYPE_BUY) ? "B" : "S";
-      string ticket_str = sym + " " + dir; // v14.37: Show symbol instead of ticket number
-      string lots_str = DoubleToString(PositionGetDouble(POSITION_VOLUME), 2) + " L";
-      double pl   = PositionGetDouble(POSITION_PROFIT);
-      double sl_p = PositionGetDouble(POSITION_SL);
-      string sl_s = (sl_p > 0) ? "SL:" + DoubleToString(sl_p, 1) : "no SL";
-      string pl_s = (pl >= 0 ? "+$" : "-$") + DoubleToString(MathAbs(pl), 2);
-      string nm   = "MON_PL_" + IntegerToString(shown);
-      color  pl_c = (pl >= 0) ? clrLime : clrRed; // v14.37: Color-coded P&L
-
-      CreatePanelPosLine(nm, ticket_str, lots_str, sl_s, pl_s, pos_x, pos_y, pl_c);
-      pos_y += s_row;
-      shown++;
-   }
-   if(shown == 0)
-      CreatePanelLabel("MON_PL_NONE", "No open positions", pos_x, pos_y, clrDimGray, pos_fsz, false);
 
    ChartRedraw();
 }
@@ -2920,7 +2901,7 @@ void DrawOrUpdateSLTPLines(int idx)
 //+------------------------------------------------------------------+
 void UpdateMonitorGUI()
 {
-   // v15.2 robustness: avoid monitor redraw while editing Settings fields.
+   // v15.5 robustness: avoid monitor redraw while editing Settings fields.
    if(StringFind(g_active_edit_object, "SET_EDIT_") == 0)
       return;
 
@@ -2973,8 +2954,8 @@ void UpdateMonitorGUI()
          _tp_str = DoubleToString(_gui_tp,_Digits)+"("+IntegerToString(_tp_p)+"p)";
       }
       else _tp_str = "no TP";
-      string display_text = StringFormat("#%-8d %-5s %-4s %7.2f  SL:%-18s TP:%s",
-                                         ticket, sym, type_str, profit, _sl_str, _tp_str);
+      string display_text = StringFormat("%-5s %-4s %7.2f  SL:%-18s TP:%s",
+                                         sym, type_str, profit, _sl_str, _tp_str);
 
       string lbl_name = "MON_Pos_" + IntegerToString(ticket);
       if(ObjectFind(0, lbl_name) < 0)
@@ -3383,6 +3364,13 @@ void ProcessTrailingStop(int idx, double current_price, double pip_distance)
 bool ClosePositionAtMarket(ulong ticket, string reason)
 {
    if(!PositionSelectByTicket(ticket)) return false;
+
+   // Enforce 30-second safety hold
+   if(TimeCurrent() - (datetime)PositionGetInteger(POSITION_TIME) < 30)
+   {
+      Print("Trade close ignored for #", ticket, ": Position open for less than 30 seconds.");
+      return false; 
+   }
    
    MqlTradeRequest request;
    MqlTradeResult result;
@@ -4039,7 +4027,7 @@ void SetInputVarFromString(ENUM_INPUT_VARS var_id, string value)
          break;
 
       // ── GUI scale — must rebuild entire panel, but ONLY if the value changed ──
-      // v15.2 Fix: Previously, SetInputVarFromString(INPUT_GUI_SCALE) triggered
+      // v15.5 Fix: Previously, SetInputVarFromString(INPUT_GUI_SCALE) triggered
       // ObjectsDeleteAll(0) + ToggleSettingsPanel() unconditionally (whenever dv>0.1).
       // SaveSettingsFromPanel() calls this for every field on panel close, so even if
       // the scale was unchanged (e.g. still 1.30), a full rebuild was triggered every
@@ -4369,8 +4357,15 @@ void OnChartEvent(const int id, const long& lparam, const double& dparam, const 
          ObjectSetInteger(0, sparam, OBJPROP_STATE, false);
          string sl_str = ObjectGetString(0, "EDIT_SL", OBJPROP_TEXT);
          string tp_str = ObjectGetString(0, "EDIT_TP", OBJPROP_TEXT);
+         string lim_str = ObjectGetString(0, "EDIT_LIMIT_PRICE", OBJPROP_TEXT);
+         string sz_str = ObjectGetString(0, "EDIT_SIZE", OBJPROP_TEXT);
          Runtime_SL_Pips = (int)StringToInteger(sl_str);
          Runtime_TP_Pips = (int)StringToInteger(tp_str);
+         if(Runtime_IsPendingMode && StringLen(lim_str) > 0) Runtime_PendingPrice = StringToDouble(lim_str);
+         if(StringLen(sz_str) > 0) {
+             double _p = StringToDouble(sz_str);
+             if(_p > 0) Runtime_FixedLotSize = _p;
+         }
          ExecuteSmartEntry(ORDER_TYPE_BUY);
          return;
       }
@@ -4380,8 +4375,15 @@ void OnChartEvent(const int id, const long& lparam, const double& dparam, const 
          ObjectSetInteger(0, sparam, OBJPROP_STATE, false);
          string sl_str = ObjectGetString(0, "EDIT_SL", OBJPROP_TEXT);
          string tp_str = ObjectGetString(0, "EDIT_TP", OBJPROP_TEXT);
+         string lim_str = ObjectGetString(0, "EDIT_LIMIT_PRICE", OBJPROP_TEXT);
+         string sz_str = ObjectGetString(0, "EDIT_SIZE", OBJPROP_TEXT);
          Runtime_SL_Pips = (int)StringToInteger(sl_str);
          Runtime_TP_Pips = (int)StringToInteger(tp_str);
+         if(Runtime_IsPendingMode && StringLen(lim_str) > 0) Runtime_PendingPrice = StringToDouble(lim_str);
+         if(StringLen(sz_str) > 0) {
+             double _p = StringToDouble(sz_str);
+             if(_p > 0) Runtime_FixedLotSize = _p;
+         }
          ExecuteSmartEntry(ORDER_TYPE_SELL);
          return;
       }
@@ -4413,7 +4415,7 @@ void OnChartEvent(const int id, const long& lparam, const double& dparam, const 
       }
 
 
-      if(sparam == "BTN_KillSwitch")
+      if(sparam == "BTN_KillSwitch" || sparam == "BTN_LOCK")
       {
          ObjectSetInteger(0, sparam, OBJPROP_STATE, false);
          Runtime_EnableEmergencyStop = !Runtime_EnableEmergencyStop;
@@ -4518,14 +4520,14 @@ void OnChartEvent(const int id, const long& lparam, const double& dparam, const 
          g_active_edit_object = "";
          ChartRedraw();
       }
-      if(sparam == "GUI_EDIT_Size")
+      if(sparam == "GUI_EDIT_Size" || sparam == "EDIT_SIZE")
       {
          double val = StringToDouble(ObjectGetString(0, sparam, OBJPROP_TEXT));
          if(val > 0) Runtime_FixedLotSize = val;
          g_active_edit_object = "";
          ChartRedraw();
       }
-      if(sparam == "GUI_EDIT_Price")
+      if(sparam == "GUI_EDIT_Price" || sparam == "EDIT_LIMIT_PRICE")
       {
          double val = StringToDouble(ObjectGetString(0, sparam, OBJPROP_TEXT));
          if(val > 0) Runtime_PendingPrice = val;
@@ -4571,7 +4573,7 @@ void ToggleSettingsPanel()
       DeleteSettingsPanelObjects();
       ObjectSetString(0,  "BTN_Settings", OBJPROP_TEXT,    "SET");
       ObjectSetInteger(0, "BTN_Settings", OBJPROP_BGCOLOR, clrGray);
-      CreateTransparentPanel(); // v15.2 Fix C: always rebuild metrics on panel close
+      CreateTransparentPanel(); // v15.5 Fix C: always rebuild metrics on panel close
    }
    ChartRedraw();
 }
@@ -4582,7 +4584,7 @@ void UpdateSettingsPanel()
 {
    if(!SettingsPanelExpanded) return;
 
-   // v15.2 Fix E: Update button states ONLY.
+   // v15.5 Fix E: Update button states ONLY.
    // Edit boxes are intentionally excluded here.
    //
    // The bug: the previous data-driven loop deleted+recreated every SET_EDIT_*
@@ -4654,7 +4656,7 @@ void AddSettingsToggle(string key, string label_text, bool is_on, string group, 
 void AddSettingsRow(string key, string label_text, string value,
                     int x, int &y, int label_w, int edit_w, int row_h)
 {
-   // v15.2 robustness: revert to the original working CreateField-style OBJ_EDIT setup.
+   // v15.5 robustness: revert to the original working CreateField-style OBJ_EDIT setup.
    string lbl = "SET_LBL_" + key;
    ObjectDelete(0, lbl);
    ObjectCreate(0, lbl, OBJ_LABEL, 0, 0, 0);
@@ -5079,7 +5081,7 @@ void LogTradeEvent(string type, ulong ticket, string symbol, double volume, doub
 //+------------------------------------------------------------------+
 void UpdatePriceDisplay()
 {
-   // v15.2 RETIRED: LBL_MarketBid/Ask replaced by LBL_BIDVAL/ASKVAL in v15.0.
+   // v15.5 RETIRED: LBL_MarketBid/Ask replaced by LBL_BIDVAL/ASKVAL in v15.0.
    // Market data refresh handled entirely by UpdateRiskPanel().
 }
 
@@ -5324,11 +5326,11 @@ void OnDeinit(const int reason)
    ObjectsDeleteAll(0,"TF_");   ObjectsDeleteAll(0,"BTN_");  ObjectsDeleteAll(0,"LBL_");
    ObjectsDeleteAll(0,"GUI_");  ObjectsDeleteAll(0,"M_");    ObjectsDeleteAll(0,"SET_");
    ObjectsDeleteAll(0,"MON_");  ObjectsDeleteAll(0,"ACC_");  ObjectsDeleteAll(0,"LIM_");
-   ObjectsDeleteAll(0,"RISK_"); ObjectsDeleteAll(0,SL_LinePrefix); ObjectsDeleteAll(0,TP_LinePrefix);
+   ObjectsDeleteAll(0,"RISK_"); ObjectsDeleteAll(0,"EDIT_"); ObjectsDeleteAll(0,SL_LinePrefix); ObjectsDeleteAll(0,TP_LinePrefix);
    ObjectsDeleteAll(0,"MON_Pos_");
    if(atr_handle!=INVALID_HANDLE){ IndicatorRelease(atr_handle); atr_handle=INVALID_HANDLE; }
    ChartRedraw();
-   Print("TF Manager v15.2 Deinitialized. Reason=",reason);
+   Print("TF Manager v15.5 Deinitialized. Reason=",reason);
 }
 
 //+------------------------------------------------------------------+

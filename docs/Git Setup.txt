@@ -1,0 +1,330 @@
+ You now have everything needed for a professional‑grade EA project
+If you want, I can:
+
+generate the folder structure for you
+
+help you move your files cleanly
+
+create the initial commit for the reorganized repo
+
+build a GitHub Release template
+
+help you version your EA going forward
+
+Tell me what you want to do next and we’ll keep building this out.
+
+
+
+
+
+
+
+You said
+
+I need your advice on all of those. Decide of the order.
+Copilot said
+Andre, perfect — since you want best‑practice end‑to‑end, I’ll take the lead and give you the exact order that produces a clean, professional, long‑term‑maintainable EA project.
+This is the same workflow used in serious algo‑trading shops.
+
+Below is the sequence that avoids rework, keeps your repo clean, and builds a foundation you can scale.
+
+🧭 THE ORDER YOU SHOULD FOLLOW (best‑practice)
+1. Finalize the folder structure
+This is the foundation. Everything else depends on it.
+
+You create:
+
+Code
+
+
+Copy
+src/
+build/
+docs/
+tests/
+releases/
+Then move:
+
+.mq5 → src/
+
+.ex5 → build/
+
+all .txt → docs/
+
+This gives you a clean, auditable project root.
+
+2. Add the .gitignore
+Once the folders exist, you add the .gitignore so Git doesn’t track junk.
+
+This prevents:
+
+logs
+
+compiled files
+
+tester output
+
+VS Code settings
+
+Windows trash
+
+from polluting your repo.
+
+3. Commit the new structure
+After the move + .gitignore, you commit:
+
+Code
+
+
+Copy
+git add .
+git commit -m "Reorganized project into src/build/docs structure"
+git push
+This locks in the clean baseline.
+
+4. Create README.md
+Now that the structure is stable, you document:
+
+what the EA does
+
+how to install it
+
+how to configure it
+
+folder layout
+
+versioning
+
+This is your project’s front door.
+
+5. Create CHANGELOG.md
+This is where you track:
+
+what changed
+
+when
+
+why
+
+This becomes invaluable when debugging or releasing updates.
+
+6. Set up the GitHub release workflow
+Once the repo is structured and documented, you set up:
+
+version tags (v15.4, v15.5, etc.)
+
+zipped releases in /releases
+
+GitHub Releases with notes
+
+This gives you professional versioning.
+
+7. Configure VS Code for development
+Finally, you integrate:
+
+Git panel
+
+MQL5 syntax highlighting
+
+GitLens
+
+Markdown tools
+
+Optionally, you can add:
+
+a build task
+
+a test preset runner
+
+auto‑sync to build/
+
+This makes your workflow smooth and repeatable.
+
+🧱 WHY THIS ORDER WORKS
+Because:
+
+You don’t document before the structure exists
+
+You don’t release before the repo is clean
+
+You don’t configure VS Code before the repo is stable
+
+You don’t tag versions before the changelog exists
+
+This sequence builds a solid, auditable, future‑proof foundation.
+
+🎯 NEXT STEP FOR YOU RIGHT NOW
+We start at Step 1.
+
+Tell me:
+
+Do you want me to generate the folder structure commands for you, or do you prefer to create the folders manually in Explorer/VS Code?
+Either way, I’ll guide you through Step 1 cleanly.
+
+
+
+
+
+
+
+You said
+
+do I create of file for the .Guitimores and if so where?
+Copilot said
+Andre, you’re right on schedule — this is exactly the moment when the .gitignore file becomes part of your project’s foundation. And yes, you create a file for it. It’s not automatic, and it does not go inside the .git folder.
+
+Let me give you the clean, best‑practice answer.
+
+📌 Where the .gitignore file goes
+You create it in the root of your project, right next to:
+
+Code
+
+
+Copy
+src/
+build/
+docs/
+tests/
+releases/
+.git/
+README.md
+CHANGELOG.md
+So the correct location is:
+
+Code
+
+
+Copy
+TF_RiskManager/.gitignore
+Not inside .git, not inside src, not inside docs.
+
+Git only reads .gitignore when it’s in the project root.
+
+📌 How to create it
+Option A — In VS Code
+Open the TF_RiskManager folder
+
+Right‑click → New File
+
+Name it:
+
+Code
+
+
+Copy
+.gitignore
+Paste the recommended content I gave you earlier.
+
+Option B — In File Explorer
+Windows normally doesn’t allow filenames starting with a dot, but you can do this:
+
+Create a file named:
+
+Code
+
+
+Copy
+gitignore.txt
+Open it, paste the content
+
+Save
+
+Rename it to:
+
+Code
+
+
+Copy
+.gitignore
+Windows will warn you — click Yes.
+
+Option C — In Git Bash
+From inside the TF_RiskManager folder:
+
+bash
+
+
+Copy
+touch .gitignore
+Then open it in VS Code and paste the content.
+
+📌 What the .gitignore actually does
+It tells Git:
+
+don’t track compiled .ex5 files
+
+don’t track logs
+
+don’t track tester output
+
+don’t track VS Code settings
+
+don’t track Windows junk
+
+don’t track build artifacts
+
+This keeps your repo clean and professional.
+
+📌 What you should NOT do
+Do not put .gitignore inside .git/
+
+Do not put .gitignore inside src/
+
+Do not create multiple .gitignore files
+
+Do not rename it .Gitimores or .Guitimores
+
+The correct name is:
+
+Code
+
+
+Copy
+.gitignore
+All lowercase, no spaces, no extensions.
+
+🎯 Next step after creating it
+Once the .gitignore is created and filled:
+
+bash
+
+
+Copy
+git add .gitignore
+git commit -m "Add .gitignore for clean project structure"
+git push
+This locks in the rule set for your repo.
+
+If you want, I can now walk you through:
+
+creating the folder structure
+
+moving your files
+
+committing the reorganization
+
+generating the README
+
+generating the CHANGELOG
+
+setting up your release workflow
+
+configuring VS Code for MQL5 development
+
+Just tell me when you’re ready for Step 1.
+
+
+
+
+
+
+
+You said
+
+Item 5, step 4. How do I use the tag step. Do I just run that snippet? Does any of my created work going into the .git folder?
+
+
+Message Copilot or @ mention a tab
+
+

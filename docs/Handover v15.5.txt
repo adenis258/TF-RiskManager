@@ -1,0 +1,33 @@
+Task Handover Summary for New Model
+Current State of TF_RiskManager_v15_5.mq5
+
+WHAT IS DONE: The UI changes are complete. The SELL (Red) and BUY (Green) buttons have been successfully swapped in the interface, and the Spread display is now a unified box (e.g., "1.0") without the "sprd" label.
+WHAT FAILED: The massive block updates for RecalculateBuffers() and the position closure lock (the 30-second rule) have not been applied. The previous models failed repeatedly trying to string-replace 120+ lines of text over a terminal command.
+Immediate Next Steps for the New Model The new model needs to surgically apply three major logic adjustments. Do not use PowerShell Set-Content string replacement blocks. Use direct file editing tools (single_find_and_replace or edit_existing_file or write a quick Python script to do the string replacement).
+
+Here is exactly what needs to be changed in TF_RiskManager_v15_5.mq5:
+
+1. Update RecalculateBuffers() Replace the current RecalculateBuffers() logic with the following updated math/logic. The crucial changes here are:
+
+Buffer Percentages must use the formula: (Remaining Buffer / Static Allowance) * 100 (e.g., (Buffer_DLL / DLL_FixedAmount) * 100).
+DLL Matching TLL: If Buffer_DLL is greater than Buffer_TLL, the EA must force Buffer_DLL = Buffer_TLL; so the DLL risk correctly reflects the binding terminal risk.
+Remove Liquidation on TFS Breach: Under the tf_daily_breach logic, remove the command CloseAllPositions("TF Shield breach");. It should only fire the Alert/Print.
+2. Add the 30-Second Trade Lock In the function that closes trades (usually named ClosePositionAtMarket and CloseAllPositions), add a guard clause immediately after the position is selected. Note that the 30-second lock applies only to the position being added, not to the whole positions.
+
+Mql5
+
+Apply
+// Enforce 30-second safety hold
+if(TimeCurrent() - (datetime)PositionGetInteger(POSITION_TIME) < 30)
+{
+   Print("Trade close ignored: Position open for less than 30 seconds.");
+   return false; // or continue; if inside a loop in CloseAllPositions
+}
+3. Position List Clean-up Find the function that draws the on-chart trade list (likely UpdateMonitorGUI or DrawPositionList). Remove the rendering of the Trade ID (# column) so the interface only shows Symbol, Profit, and SL/TP Distances.
+
+
+ADDITIONAL CHANGES TO IMPLEMENT
+4. Delete the decimals in the spread box between the bid and ask.
+5. The move to break-even is inactive. Clicking on the button does nothing.
+6. In the Open Position section (bottom), there are two lines of data on top of each other. Delete the line with less data.
+

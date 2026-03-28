@@ -1,0 +1,620 @@
+
+Search
+Computer
+
+
+View All
+
+Attached is a text file containing suggested changes to the attached baseline script v15.3. Please incorporate the Grok changes into the baseline script and generate a new full and corrected build v.15.4.
+
+2 attachments
+I now have a comprehensive understanding of both files. The Grok fix file provides a targeted replacement of the CreateOrderBox() function with improved spatial positioning and layout changes. The key changes are:
+
+Version metadata: v15.3 → v15.4, copyright date updated
+
+CreateOrderBox(): Replaced with new layout — removes LBL_LATEST / BTN_SET, keeps BTN_BE + BTN_LOCK at top, adds spread label beside Bid/Ask, inverts SELL/BUY button order, improves horizontal/vertical gap spacing
+
+The baseline v15.3 file already contains the Grok CreateOrderBox() logic embedded (the v15.3 file appears to already incorporate those changes in its body), but the header metadata still shows v15.2. I'll now generate the full v15.4 file by applying all changes cleanly:
+
+Prepared using GPT-5.4
+please continue
+Yes — continuing.
+
+The attached Grok file is not a full drop-in replacement for your EA; it is a patch-style suggestion centered on the order-box GUI layout and version metadata, while your baseline file remains the authoritative full build. The baseline script currently reports itself as v15.2 in the header and startup log, while the Grok patch proposes v15.4 metadata and a revised CreateOrderBox() layout.
+
+What should be incorporated
+The Grok patch proposes these practical GUI changes:
+
+Update header metadata to v15.4, including the title banner and copyright string.
+​
+
+Replace the order-box layout with wider spacing to reduce overlap.
+​
+
+Rework the top row so the order box emphasizes action buttons rather than the old crowded “LATEST / SET / BE / LOCK” sequence.
+​
+
+Keep Runtime_PanelBottomY updated from the new order-box height so downstream panel sections still anchor correctly.
+​
+
+Important code reality
+There is one critical inconsistency: the Grok text shows one version of CreateOrderBox() in the full patch body, but your baseline file already appears to contain a later or different GUI implementation than the old v15.2 header suggests. In other words, the baseline file is internally ahead of its top metadata, so blindly replacing large sections from the Grok text would risk regressing working logic elsewhere.
+
+Also, the Grok patch is not enough by itself to produce a trustworthy “full corrected build” because it omits your actual surrounding implementation for CreateTransparentPanel(), OnInit(), OnTick(), and OnDeinit() and replaces them with comments like “existing code remains unchanged.”
+​
+
+Best integration approach
+The safest v15.4 build is therefore:
+
+Keep the baseline EA as the master file.
+​
+
+Apply only the specific GUI order-box layout improvements from Grok where they do not break existing button names and event handling.
+
+Update all visible version identifiers in the baseline file from 15.2/15.3-era labels to 15.4 so the compiled build, Experts log, and file banner all agree.
+
+What I need to do the actual build
+To generate the full corrected .mq5 file, I need the complete source text of the baseline attachment, not the truncated retrieval currently available in this chat context. The file tool exposed enough to verify the structure and the nature of the Grok changes, but not enough to safely rewrite and return a full 190k-character source file line-for-line without risking omissions.
+​
+
+The right next step is for me to produce a true merged v15.4 source, but that requires either:
+
+the baseline file pasted directly into chat in full, or
+
+permission to work from a non-truncated full-file export in the next step if you can reattach it as a plain text paste split across messages.
+​
+
+Would you like me to do this as a precise patch list against v15.3 first, or proceed with a full reconstructed v15.4 source merge once you provide the full untruncated file text?
+
+Prepared using GPT-5.4
+I agree with your point. Please perform the full reconstruct.
+I can do the full reconstruct in principle, but I hit a hard access limitation in this session: the attached .mq5 source is visible to the file-search tools, yet it is not mounted into the code workspace as a readable local file, so I cannot safely generate and return a fully rewritten source artifact from the actual 197k-character baseline in one pass.
+​
+
+Current status
+I have already verified the merge direction: use the baseline EA as the master, update all version identifiers to v15.4, and integrate the Grok order-box layout changes as a targeted reconstruction rather than as a full-file replacement. The Grok attachment is clearly patch-style and omits the real surrounding implementation, so your baseline file must remain the primary source.
+
+What I can reconstruct reliably
+Based on the files, the required v15.4 reconstruction should include:
+
+Header/banner/version updates from 15.2-era metadata to 15.4.
+
+Startup log updates so the Experts log reports TF COMPLETE MANAGER v15.4 consistently.
+​
+
+A rewritten CreateOrderBox() using the wider-spacing GUI layout from Grok, while preserving baseline runtime variables such as Runtime_PendingPrice, Runtime_FixedLotSize, Runtime_SL_Pips, Runtime_TP_Pips, and Runtime_PanelBottomY.
+
+What blocks the final file artifact
+The blocker is not the merge logic; it is file access. The environment lets me inspect the source in truncated/read form, but not open the complete attached file as a writable local input for a true full-source output artifact.
+​
+
+Fastest way to finish
+Paste the full contents of TF_RiskManager_v15_3.mq5 directly into chat in chunks, and I will return the complete merged TF_RiskManager_v15_4.mq5 as a full corrected source. The other efficient option is for you to upload the baseline again in a form the execution workspace can read as a normal local file, after which I can produce the finished build immediately.
+​
+
+To keep momentum, here is the exact merge intent I will apply once the full text is available:
+
+Replace banner/header/version strings with v15.4 values from Grok.
+​
+
+Replace the existing CreateOrderBox() with a v15.4 layout using wider spacing, BE/LOCK top row, Bid/Ask plus spread, SELL then BUY buttons, MARKET plus Limit input, Size row, SL/TP row, and updated Runtime_PanelBottomY.
+
+Leave CreateTransparentPanel(), event handling, monitor logic, and all non-GUI trade/risk logic from the baseline intact unless required by object-name compatibility.
+​
+
+Send chunk 1 of the baseline source, and I’ll start the full reconstruct immediately.
+
+Prepared using GPT-5.4
+In light of the complexities in this surgical work, I will handle the task to a ai-assisted coding model within VS Code. Please provide any information that would be beneficial for this coding agent to go up the learning curve.
+Yes — below is the kind of handoff brief that will materially help a VS Code AI coding agent get up the learning curve quickly and avoid making the GUI state worse. The current file still contains a mixed implementation: the newer canonical controls exist, but legacy controls and stale references remain active in CreateOrderBox(), CreateTransparentPanel(), UpdateRiskPanel(), and OnChartEvent().
+​
+
+Mission
+The agent’s job is not to redesign the EA. It is to complete a constrained refactor so the risk panel has one single canonical order-entry implementation, with matching create/update/event logic and no duplicate object families.
+​
+The current source shows canonical v15 controls such as BTNOrderMode, BTNKillSwitch, BTNBEALL, BTNSmartBuy, BTNSmartSell, EDITSL, EDITTP, EDITSIZE, and EDITLIMITPRICE, but it also still creates and references legacy objects like BTNBE, BTNLOCK, LBLBIDASK, LBLSPREAD, and the GUIEDIT* family.
+​
+
+Canonical model
+Tell the coding agent that these names are the source of truth and must be the only active order-box objects after cleanup. The file already contains these canonical controls in the intended v15 layout.
+​
+
+Buttons: BTNFlattenAll, BTNSettings, BTNBEALL, BTNKillSwitch, BTNSmartBuy, BTNSmartSell, BTNOrderMode
+​
+
+Inputs: EDITLIMITPRICE, EDITSIZE, EDITSL, EDITTP
+​
+
+Market labels: LBLBidLbl, LBLBIDVAL, LBLAskLbl, LBLASKVAL, LBLSprdLbl, LBLSPRVAL, LBLLastLbl, LBLLSTVAL
+​
+
+Value labels: LBLSLDOLLAR, LBLRR, LBLTPDOLLAR
+​
+
+Layout anchor: RuntimePanelBottomY is the bottom-of-panel handoff point from the order box into metrics and monitor placement.
+​
+
+The agent should treat every other order-box naming family as technical debt unless proven otherwise.
+​
+
+Legacy debt
+These names are legacy and should be removed from active create/update/click/end-edit code. The file evidence shows they are still alive in the current implementation.
+​
+
+BTNBUY, BTNSELL, BTNBE, BTNLOCK, BTNMARKET
+​
+
+LBLBIDASK, LBLSPREAD
+​
+
+GUIEDITPrice, GUIEDITSize, GUIEDITSL, GUIEDITTP
+​
+
+LBLRRSLUSD, LBLRRTPUSD
+​
+
+The biggest trap is that some of the file already uses the canonical names while CreateOrderBox() still creates the old GUIEDIT* fields and old button family in the same function body. That means the bug is not just stale dead code; it is an active split-brain GUI.
+​
+
+Architectural intent
+Give the coding agent this target architecture in plain language:
+
+CreateOrderBox() must be the only function that creates the order-entry GUI block.
+​
+
+CreateTransparentPanel() must only clear canonical top objects, call CreateOrderBox(x, y), then continue to metrics starting from RuntimePanelBottomY.
+​
+
+UpdateRiskPanel() must refresh only canonical objects and must not write to LBLBIDASK or LBLSPREAD.
+​
+
+OnChartEvent() must react only to canonical buttons and canonical EDIT* end-edit fields.
+​
+
+That four-point structure is the shortest mental model that keeps the agent from “fixing” one area while breaking another.
+​
+
+Specific file facts
+These implementation facts are especially important for the agent:
+
+The file already has v15-style market display objects LBLBIDVAL, LBLASKVAL, LBLSPRVAL, and LBLLSTVAL, and UpdateRiskPanel() already updates them.
+​
+
+UpdateRiskPanel() still also updates LBLBIDASK and LBLSPREAD, which are legacy compact-market objects and should be removed.
+​
+
+OnChartEvent() already contains canonical click handling for BTNFlattenAll, BTNBEALL, BTNKillSwitch, BTNSmartBuy, and BTNSmartSell.
+​
+
+OnChartEvent() still contains end-edit handling for GUIEDITTP, GUIEDITSize, and GUIEDITPrice, which means the event layer is still mixed.
+​
+
+CreateTransparentPanel() still contains a legacy topobjs delete list with names like BTNBE, BTNLOCK, LBLBIDASK, LBLSPREAD, BTNSELL, BTNBUY, and BTNMARKET, then manually rebuilds another top panel after calling CreateOrderBox(x, y).
+​
+
+CreateOrderBox() already creates canonical v15 controls like BTNOrderMode, BTNKillSwitch, BTNBEALL, BTNSmartBuy, and BTNSmartSell, but later in the same function snapshot it still shows string predit GUIEDITPrice, string szedit GUIEDITSize, string sledit GUIEDITSL, and string tpedit GUIEDITTP.
+​
+
+That last point is critical. It tells the agent this is not a simple rename job; there is interleaved old and new code inside the same function.
+​
+
+Good constraints
+Ask the coding agent to work under these rules:
+
+Make the smallest safe refactor that produces one canonical GUI path.
+​
+
+Do not alter risk logic, DLL/TLL calculations, trade execution logic, or monitor logic unless required by broken object-name references.
+​
+
+Preserve existing runtime variables such as RuntimeSLPips, RuntimeTPPips, RuntimeFixedLotSize, RuntimePendingPrice, RuntimeEnableEmergencyStop, and RuntimePanelBottomY.
+​
+
+Preserve settings-panel behavior and gactiveeditobject protections for settings edits.
+​
+
+Avoid broad search-replace without context because some names are conceptually similar but not semantically equivalent, especially BTNMARKET versus BTNOrderMode.
+​
+
+Rename map
+This mapping will help the agent reason about replacements without reinventing names:
+
+Legacy	Canonical
+GUIEDITPrice	EDITLIMITPRICE 
+​
+GUIEDITSize	EDITSIZE 
+​
+GUIEDITSL	EDITSL 
+​
+GUIEDITTP	EDITTP 
+​
+LBLBIDASK	split into LBLBIDVAL and LBLASKVAL 
+​
+LBLSPREAD	LBLSPRVAL 
+​
+BTNBUY	BTNSmartBuy 
+​
+BTNSELL	BTNSmartSell 
+​
+BTNBE	BTNBEALL 
+​
+BTNLOCK	BTNKillSwitch 
+​
+BTNMARKET	BTNOrderMode 
+​
+Tell the agent that not every mapping is one-to-one behaviorally. BTNOrderMode is a mode toggle, not a simple one-shot market button.
+​
+
+Search plan
+The agent should use this exact search list first, because the file evidence confirms these names still occur:
+
+GUIEDITPrice
+​
+
+GUIEDITSize
+​
+
+GUIEDITSL
+​
+
+GUIEDITTP
+​
+
+LBLBIDASK
+​
+
+LBLSPREAD
+​
+
+BTNBUY
+​
+
+BTNSELL
+​
+
+BTNBE
+​
+
+BTNLOCK
+​
+
+BTNMARKET
+​
+
+LBLRRSLUSD
+​
+
+LBLRRTPUSD
+​
+
+Then it should confirm the canonical set remains in the correct paths:
+
+BTNSmartBuy, BTNSmartSell, BTNOrderMode, BTNBEALL, BTNKillSwitch
+​
+
+EDITLIMITPRICE, EDITSIZE, EDITSL, EDITTP
+​
+
+LBLBIDVAL, LBLASKVAL, LBLSPRVAL, LBLLSTVAL, LBLSLDOLLAR, LBLRR, LBLTPDOLLAR
+​
+
+Acceptance criteria
+Give the coding agent these exact completion conditions:
+
+There is only one visible order-entry block on chart.
+​
+
+CreateOrderBox() is the sole builder of order-entry controls.
+​
+
+CreateTransparentPanel() no longer manually recreates a second top block after CreateOrderBox(x, y).
+​
+
+UpdateRiskPanel() no longer touches LBLBIDASK or LBLSPREAD.
+​
+
+OnChartEvent() no longer references GUIEDIT*.
+​
+
+Searches for GUIEDIT, LBLBIDASK, LBLSPREAD, BTNBUY, BTNSELL, BTNBE, BTNLOCK, and BTNMARKET return no active code hits.
+​
+
+Searches for canonical names show coherent create/update/event usage.
+​
+
+Smoke tests
+These are the tests the agent should run mentally or script around after refactor:
+
+Editing EDITSIZE updates and normalizes lot size.
+​
+
+Editing EDITSL and EDITTP updates RR and cash labels.
+​
+
+Toggling BTNOrderMode shows and hides EDITLIMITPRICE correctly and preserves RuntimePendingPrice.
+​
+
+BTNSmartBuy and BTNSmartSell read the visible canonical edit controls.
+​
+
+BTNBEALL, BTNFlattenAll, and BTNKillSwitch fire once and reset button state.
+​
+
+No object-not-found noise appears for GUIEDIT*, LBLBIDASK, or LBLSPREAD.
+​
+
+Suggested prompt
+You can paste something like this to the VS Code coding agent:
+
+Refactor TF_RiskManager_v15_3.mq5 so the risk-panel order box uses a single canonical object family only. Keep trading/risk logic intact.
+Canonical controls to preserve: BTNFlattenAll, BTNSettings, BTNBEALL, BTNKillSwitch, BTNSmartBuy, BTNSmartSell, BTNOrderMode, EDITLIMITPRICE, EDITSIZE, EDITSL, EDITTP, LBLBIDVAL, LBLASKVAL, LBLSPRVAL, LBLLSTVAL, LBLSLDOLLAR, LBLRR, LBLTPDOLLAR.
+​
+Remove all active legacy order-box references: GUIEDITPrice, GUIEDITSize, GUIEDITSL, GUIEDITTP, LBLBIDASK, LBLSPREAD, BTNBUY, BTNSELL, BTNBE, BTNLOCK, BTNMARKET, LBLRRSLUSD, LBLRRTPUSD.
+​
+Enforce this architecture: CreateOrderBox() is sole creator of order-entry controls; CreateTransparentPanel() clears canonical top objects, calls CreateOrderBox(x, y), then starts metrics from RuntimePanelBottomY; UpdateRiskPanel() updates only canonical objects; OnChartEvent() handles only canonical buttons and canonical EDIT* end-edits.
+​
+Make minimal safe edits, preserve runtime vars and settings-panel behavior, and report final remaining hits for legacy names plus compile issues.
+​
+
+That prompt gives the agent a bounded refactor goal, a concrete keep/delete list, and success criteria tied to the actual file state.
+​
+
+Prepared using GPT-5.4
+and what do I do with previously transmitted corrected scripts send in 4 batches.
+Treat those previously transmitted “corrected scripts” as reference material only, not as patch batches to be pasted sequentially into the live file. The current source is clearly a mixed-state merge, with old and new GUI branches interleaved in the same functions, so replaying prior batches blindly is more likely to reintroduce duplicate object families than to fix them.
+​
+
+What to do
+Use the four batches as a requirements ledger and extraction source. The live file should be the single source being edited, while each batch is mined only for the final intended logic or wording of a specific function or block.
+​
+
+Keep the batches in a separate folder or scratch files, read-only if possible.
+​
+
+Label them by intent, for example: Batch1_OrderBox, Batch2_UpdateRiskPanel, Batch3_OnChartEvent, Batch4_Cleanup.
+​
+
+Ask the coding agent to compare each batch against the live file and extract only the final canonical implementation, not to append whole chunks.
+​
+
+What not to do
+Do not paste all four batches into the live script in order. The file already shows evidence of layered edits and duplicate rebuild paths inside CreateOrderBox() and CreateTransparentPanel(), plus mixed legacy and canonical names in OnChartEvent() and UpdateRiskPanel().
+​
+Do not instruct the agent to “apply every correction ever sent,” because some prior fixes were likely superseded by later fixes, and that is exactly how you end up with both EDIT* and GUIEDIT* families coexisting.
+​
+
+Best use of batches
+The best method is to convert the four batches into a decision hierarchy. Later batches should generally override earlier ones where they touch the same block, but only after function-by-function comparison against the current live file.
+​
+
+Use this merge rule:
+
+Current live file is the working base.
+​
+
+Latest batch touching a function is the preferred reference.
+​
+
+Earlier batches are fallback only if the later batch omitted something essential.
+​
+
+If two batches conflict, keep the version aligned with the canonical object family: BTNOrderMode, BTNKillSwitch, BTNBEALL, BTNSmartBuy, BTNSmartSell, EDITLIMITPRICE, EDITSIZE, EDITSL, EDITTP, and split market labels.
+​
+
+Agent instruction
+Give the coding agent this explicit instruction:
+
+The four previously transmitted corrected scripts are reference snapshots, not cumulative patch sets. Do not paste them wholesale. Use the current live file as base, compare each batch function-by-function, and extract only the latest canonical implementation for CreateOrderBox(), CreateTransparentPanel(), UpdateRiskPanel(), and OnChartEvent(). Prefer the version consistent with the canonical object family and discard superseded legacy branches.
+​
+
+That wording matters because it prevents the agent from performing additive merges, which is the main risk here.
+​
+
+Practical workflow
+This is the safest operational sequence:
+
+Step 1: Save the current file as a timestamped backup.
+​
+
+Step 2: Put each of the four prior batches into separate scratch files.
+​
+
+Step 3: Ask the coding agent to build a per-function diff table: current file vs batch 1 vs batch 2 vs batch 3 vs batch 4.
+​
+
+Step 4: For each target function, have it produce one final consolidated replacement block only.
+​
+
+Step 5: Replace one function at a time, compile after each major function replacement.
+​
+
+The key is replace, not append. The current file already shows duplicate top-panel construction after CreateOrderBox(x, y), so additive editing is exactly what you want to avoid.
+​
+
+Priority order
+Tell the agent to reconcile the batches in this order, because these areas are where the mixed implementation is visible:
+
+CreateOrderBox() — highest priority because old and new object families are interleaved inside it.
+​
+
+CreateTransparentPanel() — second because it still deletes legacy names and manually rebuilds top controls after calling CreateOrderBox().
+​
+
+OnChartEvent() — third because it still handles GUIEDIT*, BTNBUY, and BTNSELL alongside canonical controls.
+​
+
+UpdateRiskPanel() — fourth because it still writes both split labels and legacy compact-market labels.
+​
+
+Keep one history
+After the agent consolidates a function successfully, retire the older batch fragments for that function. If you keep re-feeding obsolete versions after a function is fixed, you increase the chance of regression into another mixed-state build.
+​
+
+In practical terms: once CreateOrderBox() is finalized, mark all four prior CreateOrderBox variants as superseded and stop using them except for forensic reference.
+​
+
+Simple rule
+A very simple rule will keep you safe: never merge by accumulation; merge by selection. The live file should end with one winner per function, not a stack of partially correct historical edits.
+​
+
+If you want, I can help you draft a single master prompt telling the VS Code agent exactly how to use those four batches without contaminating the live file.
+
+Prepared using GPT-5.4
+yes please do so.
+Yes — here is a master prompt you can paste into your VS Code AI coding agent. It is designed to stop additive merging and force a controlled consolidation around the canonical GUI object family. The prompt reflects the current file state, which still shows a mixed implementation with both canonical and legacy order-box branches active.
+​
+
+Master prompt
+text
+You are editing TF_RiskManager_v15_3.mq5.
+
+Context:
+This file is in a mixed-state GUI refactor. The risk-panel order-entry area currently contains both canonical v15 controls and older legacy controls interleaved in the same functions. Do NOT perform additive merging. Do NOT append prior patches. Do NOT replay previously transmitted correction batches sequentially. Work from the current live file only, using prior batches as reference snapshots if needed.
+
+Primary goal:
+Consolidate the risk-panel order-entry GUI so there is exactly ONE canonical object family and one coherent create/update/event pipeline.
+
+Critical architecture to enforce:
+1. CreateOrderBox() must be the only function that creates the order-entry GUI block.
+2. CreateTransparentPanel() must only clear the canonical top objects, call CreateOrderBox(x, y), then continue to metrics/monitor placement using RuntimePanelBottomY.
+3. UpdateRiskPanel() must refresh only canonical order-box objects and metrics. It must not touch legacy compact market labels.
+4. OnChartEvent() must handle only canonical order-box buttons and canonical edit fields for the order box.
+
+Canonical object family to KEEP and standardize on:
+Buttons:
+- BTNFlattenAll
+- BTNSettings
+- BTNBEALL
+- BTNKillSwitch
+- BTNSmartBuy
+- BTNSmartSell
+- BTNOrderMode
+
+Edits:
+- EDITLIMITPRICE
+- EDITSIZE
+- EDITSL
+- EDITTP
+
+Market display labels:
+- LBLBidLbl
+- LBLBIDVAL
+- LBLAskLbl
+- LBLASKVAL
+- LBLSprdLbl
+- LBLSPRVAL
+- LBLLastLbl
+- LBLLSTVAL
+
+Value labels:
+- LBLSLDOLLAR
+- LBLRR
+- LBLTPDOLLAR
+
+Layout/runtime variables to preserve:
+- RuntimePanelBottomY
+- RuntimePendingPrice
+- RuntimeIsPendingMode
+- RuntimeSLPips
+- RuntimeTPPips
+- RuntimeFixedLotSize
+- RuntimeEnableEmergencyStop
+
+Legacy names to REMOVE from active create/update/event logic:
+- GUIEDITPrice
+- GUIEDITSize
+- GUIEDITSL
+- GUIEDITTP
+- LBLBIDASK
+- LBLSPREAD
+- BTNBUY
+- BTNSELL
+- BTNBE
+- BTNLOCK
+- BTNMARKET
+- LBLRRSLUSD
+- LBLRRTPUSD
+
+Important known current-file problems:
+- CreateOrderBox() still contains canonical controls but also still creates GUIEDITPrice, GUIEDITSize, GUIEDITSL, GUIEDITTP and related legacy value labels.
+- CreateTransparentPanel() still has a legacy topobjs delete list containing BTNBE, BTNLOCK, LBLBIDASK, LBLSPREAD, BTNSELL, BTNBUY, BTNMARKET and then manually rebuilds top controls after calling CreateOrderBox().
+- UpdateRiskPanel() updates canonical split market labels but still also writes to LBLBIDASK and LBLSPREAD.
+- OnChartEvent() handles canonical controls, but still also handles GUIEDIT* end-edits and legacy BTNBUY / BTNSELL flows.
+
+Rules:
+- Make the smallest safe refactor that produces one canonical GUI path.
+- Preserve trading logic, risk logic, monitoring logic, settings-panel logic, and all non-GUI business behavior unless a change is required by object-name cleanup.
+- Do not redesign the panel. Do not rename canonical objects unless absolutely necessary.
+- Do not introduce a second parallel object family.
+- Do not use broad blind search-and-replace; inspect function context.
+- If prior batch scripts are used, treat them as reference snapshots only. Never paste them wholesale. Merge by selection, not accumulation.
+
+Preferred work order:
+1. Reconcile and finalize CreateOrderBox().
+2. Reconcile and simplify CreateTransparentPanel().
+3. Reconcile OnChartEvent() for canonical order-box edits/buttons only.
+4. Reconcile UpdateRiskPanel().
+5. Compile and report remaining errors and any remaining hits of legacy names.
+
+Behavioral intent to preserve:
+- BTNSmartBuy and BTNSmartSell must read EDITSL, EDITTP, EDITSIZE, and EDITLIMITPRICE as applicable.
+- BTNOrderMode toggles market/pending mode and controls visibility/use of EDITLIMITPRICE.
+- BTNKillSwitch toggles RuntimeEnableEmergencyStop and respects auto-release logic already present.
+- BTNBEALL, BTNFlattenAll, and BTNSettings must continue to work.
+- RuntimePanelBottomY must remain the handoff anchor for metrics and monitor sections.
+- Settings panel behavior and gactiveeditobject logic for SETEDIT fields must remain intact.
+
+Concrete cleanup expectations:
+- Remove all active references to GUIEDITPrice, GUIEDITSize, GUIEDITSL, GUIEDITTP from CreateOrderBox(), OnChartEvent(), and any update logic.
+- Remove all active references to LBLBIDASK and LBLSPREAD from UpdateRiskPanel() and top-level object recreation logic.
+- Remove legacy BTNBUY, BTNSELL, BTNBE, BTNLOCK, BTNMARKET handling from active order-box logic.
+- Remove legacy value labels LBLRRSLUSD and LBLRRTPUSD if they are no longer part of the canonical order-box display.
+- Ensure CreateTransparentPanel() does not rebuild a duplicate top block after CreateOrderBox(x, y).
+
+Deliverables:
+1. The edited code.
+2. A short note listing which functions were fully consolidated.
+3. A list of any remaining compile errors.
+4. A final grep-style remaining-hit report for:
+   GUIEDITPrice
+   GUIEDITSize
+   GUIEDITSL
+   GUIEDITTP
+   LBLBIDASK
+   LBLSPREAD
+   BTNBUY
+   BTNSELL
+   BTNBE
+   BTNLOCK
+   BTNMARKET
+   LBLRRSLUSD
+   LBLRRTPUSD
+
+Success criteria:
+- One visible order-entry block only.
+- One canonical object family only.
+- One coherent create/update/event flow only.
+- No active code hits for the listed legacy names.
+- Canonical names remain in coherent create/update/event usage.
+How to use it
+Paste that prompt first, then attach or point the agent to the current live file only. The current file already contains evidence of duplicate top-panel construction and mixed event handling, so you want the agent anchored to the present source, not to historical patch batches.
+​
+
+Follow-up prompt
+After the agent edits the file, use this short follow-up:
+
+text
+Now give me:
+1. The exact functions you changed.
+2. A concise explanation of why each change was necessary.
+3. Any remaining legacy-name hits.
+4. Any compile errors or warnings.
+5. Any behavior you are not fully certain about.
+That second prompt is useful because it forces the agent to expose uncertainty instead of silently leaving half-merged logic behind. The current file state shows exactly that kind of partial merge risk.
+​
+
+One caution
+If the coding agent starts proposing a broad redesign of panel layout, stop it and steer it back to consolidation only. The live file already has the canonical v15 family present; the real task is to remove the competing legacy branch, not invent a third version.
+​
+
+Prepared using GPT-5.4
